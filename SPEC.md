@@ -203,7 +203,7 @@ Pending → Running → Complete / Failed
 
 ## 5. Components
 
-### 5.1 CLI (`cmd/factory/`)
+### 5.1 CLI (`cmd/factory/` — Rust)
 
 ```
 factory submit   --repo ./myapp --task "..."          # Create Factory CR
@@ -213,9 +213,9 @@ factory diff <id>                           # Show final diff
 factory cancel <id>                         # Delete Factory CR (stops workers)
 ```
 
-The CLI is thin: it creates/reads Factory CRs via the k8s API. No business logic.
+Rust CLI (clap + k8s Rust client or HTTP). Thin wrapper: creates/reads Factory CRs via k8s API.
 
-### 5.2 Controller (`pkg/factory/`)
+### 5.3 Controller (`pkg/factory/` — Go)
 
 The controller reconciles Factory CRs:
 
@@ -245,9 +245,9 @@ func (c *Controller) Reconcile(ctx, factory *Factory) error {
 4. When all stages are done, assemble final result
 5. Update Factory status
 
-### 5.3 Worker Pod
+### 5.4 Worker Pod (Rust binary)
 
-Each worker pod is identical — the stage is passed as an env var:
+Each worker pod runs a Rust binary — the stage is passed as an env var:
 
 ```yaml
 apiVersion: v1
@@ -288,7 +288,7 @@ spec:
 5. Write output to `/result/output.txt`
 6. Exit 0
 
-### 5.4 Model Client (`pkg/model/`)
+### 5.5 Model Client (`pkg/model/` — Go)
 
 ```go
 package model
@@ -318,7 +318,7 @@ type Usage struct {
 func NewClient(endpoint, model, apiKey string, opts ...Option) Client
 ```
 
-### 5.5 Stage Prompts
+### 5.6 Stage Prompts (Go)
 
 Default prompts live in `pkg/factory/prompts/`:
 
@@ -350,44 +350,54 @@ factory/
 ├── SPEC.md                      # This file
 ├── README.md                    # User-facing docs
 ├── Makefile                     # build, test, deploy, kind
-├── go.mod
+├── go.mod                     # Go module (controller, k8s helpers)
+├── Cargo.toml                 # Rust workspace (CLI + worker)
+├── rust-toolchain.toml        # Rust toolchain version
+├── SPEC.md
+├── README.md
+├── Makefile
 ├── cmd/
-│   └── factory/
-│       └── main.go             # CLI entry
+│   └── factory/               # Rust CLI (clap)
+│       └── src/
+│           └── main.rs
 ├── api/
 │   └── v1/
-│       ├── factory_types.go    # CRD types (Factory, FactorySpec, FactoryStatus)
+│       ├── factory_types.go   # CRD types
 │       └── groupversion_info.go
 ├── pkg/
 │   ├── factory/
 │   │   ├── controller.go      # Factory controller
 │   │   ├── reconciler.go      # Stage-by-stage reconciliation
 │   │   ├── prompts/
-│   │   │   ├── plan.go        # Default plan prompt
-│   │   │   ├── code.go        # Default code prompt
-│   │   │   ├── test.go        # Default test prompt
-│   │   │   └── review.go      # Default review prompt
-│   │   └── worker.go          # Worker pod generation
+│   │   │   ├── plan.go
+│   │   │   ├── code.go
+│   │   │   ├── test.go
+│   │   │   └── review.go
+│   │   └── worker.go          # Worker pod generation (Go)
 │   ├── model/
 │   │   ├── client.go          # ModelClient interface
 │   │   └── openai.go          # OpenAI-compatible adapter
-│   ├── k8s/
-│   │   ├── client.go          # k8s client helpers
-│   │   └── secrets.go         # Secret reading
-│   └── repo/
-│       ├── clone.go           # Git clone logic
-│       └── structure.go       # Repo structure analysis
-├── deploy/
-│   ├── crd.yaml               # Factory CRD manifest
-│   ├── kustomization.yaml     # Base kustomization
 │   └── k8s/
-│       ├── controller.yaml    # factory-ctrl deployment
-│       └── serviceaccount.yaml
+│       ├── client.go          # k8s client helpers
+│       └── secrets.go         # Secret reading
+├── worker/
+│   ├── Cargo.toml
+│   └── src/
+│       ├── main.rs            # Worker entry point
+│       ├── git.rs             # Git clone, diff, status
+│       ├── model.rs           # Model client (reqwest + serde)
+│       └── prompts.rs         # Prompt rendering
+├── deploy/
+│   ├── crd.yaml
+│   ├── kustomization.yaml
+│   ├── k8s/
+│   │   ├── controller.yaml
+│   │   └── serviceaccount.yaml
 │   └── kind/
-│       └── kustomization.yaml # Kind overlay (minimal)
+│       └── kustomization.yaml
 └── test/
     └── e2e/
-        └── factory_test.go    # E2E tests (runs against Kind)
+        └── factory_test.go
 ```
 
 ## 7. Build & Deploy
