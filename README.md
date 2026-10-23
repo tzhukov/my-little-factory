@@ -6,7 +6,7 @@ A minimal, k8s-native AI software factory. Submit a task, get back a pipeline of
 
 | # | Ticket | Status |
 |---|--------|--------|
-| 01 | Project scaffold: go.mod + Cargo workspace + Makefile | ⬜ |
+| 01 | Project scaffold: go.mod + Cargo workspace + Makefile | ✅ |
 | 02 | Factory CRD (YAML manifest + Go types) | ⬜ |
 | 03 | `factory submit` CLI (Rust) | ⬜ |
 | 04 | Controller watches CRs, logs Pending | ⬜ |
