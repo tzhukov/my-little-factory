@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "cmd/factory",
+    "worker",
+]
+resolver = "2"
