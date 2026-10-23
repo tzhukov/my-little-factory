@@ -42,3 +42,19 @@ $ make build
 - Directory structure exists but is empty
 
 **What's missing:** `go mod tidy`, real Rust workspace structure that compiles, verification that `make build` actually succeeds.
+
+## Blocking edges — ticket 02
+
+**Next ticket:** [02 — Factory CRD (YAML manifest + Go types)](/docs/02-factory-crd.md)
+
+**What 02 depends on from this ticket:**
+- `go.mod` must have `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go` as dependencies
+- `api/v1/` directory must exist for Go types
+- `deploy/` directory must exist for CRD YAML
+- `go vet ./...` must pass after 02 adds types
+
+**What 02 will add:**
+- `deploy/crd.yaml` — Factory CRD manifest
+- `api/v1/factory_types.go` — Factory, FactorySpec, FactoryStatus types
+- `api/v1/groupversion_info.go` — Group version info
+- `kubectl apply -f deploy/crd.yaml` must succeed
