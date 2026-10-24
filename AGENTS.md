@@ -43,8 +43,13 @@ Every ticket must go through this cycle:
 
 ### Branch Strategy
 
-- `main` is the working branch. Fast iteration.
-- PRs when the project has enough commits to warrant review (~5+ meaningful commits).
+- `main` is the working branch. Fast iteration in early stages.
+- **PR rule:** Create a PR when any of these are true:
+  - 5+ meaningful commits accumulated since the last PR
+  - A ticket touches multiple subsystems (Go + Rust + k8s)
+  - The reviewer needs to understand context before reading code
+  - We're about to merge something that could break the other language stack
+- PR title: `PR #<N> — <ticket range>: <summary>`
 - Commit messages: `<ticket> — <description>`
 
 ### Testing
