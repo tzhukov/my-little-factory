@@ -7,15 +7,15 @@ A minimal, k8s-native AI software factory. Submit a task, get back a pipeline of
 | # | Ticket | Status |
 |---|--------|--------|
 | 01 | Project scaffold: go.mod + Cargo workspace + Makefile | ✅ |
-| 02 | Factory CRD (YAML manifest + Go types) | ⬜ |
-| 03 | `factory submit` CLI (Rust) | ⬜ |
-| 04 | Controller watches CRs, logs Pending | ⬜ |
-| 05 | Kind cluster setup + deploy | ⬜ |
-| 06 | Controller creates worker pod for first stage | ⬜ |
-| 07 | Worker binary (Rust) — clone repo + call model | ⬜ |
-| 08 | Controller collects stage result → updates status | ⬜ |
-| 09 | Full sequential pipeline (all 4 stages) | ⬜ |
-| 10 | `factory status` and `factory diff` CLI | ⬜ |
+| 02 | Factory CRD (YAML manifest + Go types) | ✅ |
+| 03 | `factory submit` CLI (Rust) | ✅ |
+| 04 | Controller watches CRs, logs Pending | ✅ |
+| 05 | Kind cluster setup + deploy | ✅ |
+| 06 | Controller creates worker pod for first stage | ✅ |
+| 07 | Worker binary (Rust) — clone repo + call model | ✅ |
+| 08 | Controller collects stage result → updates status | ✅ |
+| 09 | Full sequential pipeline (all 4 stages) | ✅ |
+| 10 | `factory status` and `factory diff` CLI | ✅ |
 
 ## Quick Start
 
