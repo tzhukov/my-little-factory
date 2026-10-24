@@ -62,3 +62,7 @@ CRD YAML structure matches Go types:
 - `cmd/factory/src/main.rs` — Rust CLI with clap
 - `factory submit --task "..." --repo <url>` creates a Factory CR
 - Secret creation for model API key + endpoint
+
+## Blocking edges — ticket 03
+
+**Next ticket:** [03 — `factory submit` CLI (Rust)](/docs/03-factory-submit-cli.md)
