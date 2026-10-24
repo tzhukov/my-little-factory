@@ -5,7 +5,7 @@ import (
 )
 
 // +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime/interfaces
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Factory is the CRD for a software factory job.
 type Factory struct {
@@ -16,6 +16,7 @@ type Factory struct {
 	Status FactoryStatus `json:"status,omitempty"`
 }
 
+// +k8s:deepcopy-gen=true
 // FactorySpec is the desired state of a Factory.
 type FactorySpec struct {
 	// Model references the model configuration.
@@ -35,6 +36,7 @@ type FactorySpec struct {
 	Resources WorkerResources `json:"resources,omitempty"`
 }
 
+// +k8s:deepcopy-gen=true
 // ModelConfig references model configuration via k8s Secret.
 type ModelConfig struct {
 	// APIKeySecretRef references the secret containing the API key.
@@ -47,6 +49,7 @@ type ModelConfig struct {
 	Model string `json:"model"`
 }
 
+// +k8s:deepcopy-gen=true
 // SecretKeyReference references a key in a k8s Secret.
 type SecretKeyReference struct {
 	// Name of the secret.
@@ -56,6 +59,7 @@ type SecretKeyReference struct {
 	Key string `json:"key"`
 }
 
+// +k8s:deepcopy-gen=true
 // RepoConfig describes the source repository.
 type RepoConfig struct {
 	// URL of the repository (git@github.com:... or file:///...).
@@ -78,12 +82,14 @@ const (
 	StageReview StageName = "review"
 )
 
+// +k8s:deepcopy-gen=true
 // WorkerResources describes default resource allocation for worker pods.
 type WorkerResources struct {
 	CPU    string `json:"cpu,omitempty"`
 	Memory string `json:"memory,omitempty"`
 }
 
+// +k8s:deepcopy-gen=true
 // FactoryStatus is the observed state of a Factory.
 type FactoryStatus struct {
 	// Phase is the overall lifecycle phase.
@@ -106,6 +112,7 @@ const (
 	FactoryFailed   FactoryPhase = "Failed"
 )
 
+// +k8s:deepcopy-gen=true
 // StageStatus tracks the state of a single stage.
 type StageStatus struct {
 	Name        StageName  `json:"name"`
@@ -128,6 +135,7 @@ const (
 	StageFailed   StagePhase = "Failed"
 )
 
+// +k8s:deepcopy-gen=true
 // StageResult is the structured output of a stage.
 type StageResult struct {
 	// Text is plain text output (plan, review comments, etc.).

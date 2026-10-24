@@ -1,4 +1,4 @@
-.PHONY: build test crd docker clean
+.PHONY: build test crd docker controller clean
 
 # Build everything
 build: crd
@@ -13,6 +13,14 @@ test:
 # Generate CRD manifests
 crd:
 	@echo "CRD manifests in deploy/crd.yaml"
+
+# Generate DeepCopy methods
+controller-gen:
+	controller-gen object:headerFile= paths=./api/...
+
+# Build controller binary
+controller: crd
+	go build -o bin/factory-controller ./cmd/factory-controller/...
 
 # Build worker Docker image
 docker:

@@ -13,7 +13,7 @@ struct Cli {
     #[command(subcommand)]
     command: Command,
 
-    /// Kubeconfig path (default: ~/.kube/config)
+    /// Kubeconfig path
     #[arg(long, global = true)]
     kubeconfig: Option<String>,
 
@@ -38,6 +38,10 @@ enum Command {
         #[arg(long, default_value = "main")]
         branch: Option<String>,
 
+        /// Git ref (commit SHA, tag, or PR ref) — overrides branch
+        #[arg(long, default_value = "")]
+        git_ref: String,
+
         /// Model name
         #[arg(long)]
         model: String,
@@ -55,6 +59,12 @@ enum Command {
         stages: String,
     },
 
+    /// Show the status of a factory job
+    Status {
+        /// Factory job name
+        name: String,
+    },
+
     /// Install the factory (CRD + controller)
     Install,
 }
@@ -63,11 +73,17 @@ enum Command {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Wire up --kubeconfig: set KUBECONFIG env var before loading config
+    if let Some(ref path) = cli.kubeconfig {
+        env::set_var("KUBECONFIG", path);
+    }
+
     match cli.command {
         Command::Submit {
             task,
             repo,
             branch,
+            git_ref,
             model,
             model_api_key,
             model_endpoint,
@@ -75,11 +91,11 @@ async fn main() -> Result<()> {
         } => {
             let branch = branch.unwrap_or_else(|| String::from("main"));
             cmd_submit(
-                &cli.kubeconfig,
                 &cli.namespace,
                 &task,
                 &repo,
                 &branch,
+                &git_ref,
                 &model,
                 &model_api_key,
                 &model_endpoint,
@@ -87,22 +103,23 @@ async fn main() -> Result<()> {
             )
             .await
         }
-        Command::Install => cmd_install(&cli.kubeconfig).await,
+        Command::Status { name } => cmd_status(&cli.namespace, &name).await,
+        Command::Install => cmd_install().await,
     }
 }
 
 async fn cmd_submit(
-    kubeconfig: &Option<String>,
     namespace: &str,
     task: &str,
     repo: &str,
     branch: &str,
+    git_ref: &str,
     model: &str,
     model_api_key: &Option<String>,
     model_endpoint: &Option<String>,
     stages: &str,
 ) -> Result<()> {
-    let (cluster_url, auth_header) = get_k8s_info(kubeconfig).await?;
+    let (cluster_url, auth_header) = get_k8s_info().await?;
 
     // Get or prompt for secrets
     let api_key = get_or_prompt(model_api_key, "Model API key")?;
@@ -133,6 +150,15 @@ async fn cmd_submit(
 
     let stages_json: Vec<serde_json::Value> = stage_list.iter().map(|s| json!(s)).collect();
 
+    // Build repo spec — include ref if provided
+    let mut repo_obj = json!({
+        "url": repo,
+        "branch": branch
+    });
+    if !git_ref.is_empty() {
+        repo_obj["ref"] = json!(git_ref);
+    }
+
     let body = json!({
         "apiVersion": "factory.earendil.works/v1",
         "kind": "Factory",
@@ -152,10 +178,7 @@ async fn cmd_submit(
                 },
                 "model": model
             },
-            "repo": {
-                "url": repo,
-                "branch": branch
-            },
+            "repo": repo_obj,
             "task": task,
             "stages": stages_json,
             "resources": {
@@ -183,8 +206,77 @@ async fn cmd_submit(
     Ok(())
 }
 
-async fn cmd_install(kubeconfig: &Option<String>) -> Result<()> {
-    let (cluster_url, auth_header) = get_k8s_info(kubeconfig).await?;
+async fn cmd_status(namespace: &str, name: &str) -> Result<()> {
+    let (cluster_url, auth_header) = get_k8s_info().await?;
+
+    let url = format!(
+        "{}/apis/factory.earendil.works/v1/namespaces/{}/factories/{}",
+        cluster_url, namespace, name
+    );
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
+        .header("Authorization", &auth_header)
+        .header("Content-Type", "application/json")
+        .send()
+        .await
+        .context("Failed to send request to k8s API")?;
+
+    let status_code = response.status();
+    let body = response
+        .text()
+        .await
+        .context("Failed to read response body")?;
+
+    if !status_code.is_success() {
+        bail!("Failed to get factory status: {} — {}", status_code, body);
+    }
+
+    let factory: serde_json::Value =
+        serde_json::from_str(&body).context("Failed to parse factory response")?;
+
+    let phase = factory
+        .get("status")
+        .and_then(|s| s.get("phase"))
+        .and_then(|p| p.as_str())
+        .unwrap_or("Unknown");
+
+    println!("NAME              PHASE     AGE");
+    println!(
+        "{}\t{}\t{}",
+        name,
+        phase,
+        factory
+            .get("metadata")
+            .and_then(|m| m.get("creationTimestamp"))
+            .and_then(|t| t.as_str())
+            .unwrap_or("?")
+    );
+
+    // Show stage statuses
+    if let Some(stages) = factory
+        .get("status")
+        .and_then(|s| s.get("stages"))
+        .and_then(|s| s.as_array())
+    {
+        println!("\nSTAGES:");
+        for stage in stages {
+            let stage_name = stage["name"].as_str().unwrap_or("?");
+            let stage_phase = stage["phase"].as_str().unwrap_or("?");
+            let error = stage.get("error").and_then(|e| e.as_str()).unwrap_or("");
+            println!("  {} — {}", stage_name, stage_phase);
+            if !error.is_empty() {
+                println!("    Error: {}", error);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn cmd_install() -> Result<()> {
+    let (cluster_url, auth_header) = get_k8s_info().await?;
 
     // Create namespace
     let ns_body = json!({
@@ -286,21 +378,10 @@ fn get_or_prompt(value: &Option<String>, prompt: &str) -> Result<String> {
     Ok(input)
 }
 
-async fn get_k8s_info(kubeconfig: &Option<String>) -> Result<(String, String)> {
-    // Note: kube 0.93 doesn't support custom kubeconfig paths in the public API.
-    // Users should set the KUBECONFIG environment variable instead.
-    let config = match kubeconfig {
-        Some(_) => {
-            // --kubeconfig flag is not yet supported in kube 0.93's public API.
-            // Users should use the KUBECONFIG environment variable instead.
-            bail!("Custom --kubeconfig flag is not yet supported. Use the KUBECONFIG environment variable instead.")
-        }
-        None => {
-            Config::infer()
-                .await
-                .context("Failed to read kubeconfig (try setting KUBECONFIG env var)")?
-        }
-    };
+async fn get_k8s_info() -> Result<(String, String)> {
+    let config = Config::infer()
+        .await
+        .context("Failed to read kubeconfig (try setting KUBECONFIG env var)")?;
 
     let cluster_url = config.cluster_url.to_string();
 
@@ -308,11 +389,19 @@ async fn get_k8s_info(kubeconfig: &Option<String>) -> Result<(String, String)> {
     let auth_header = if let Some(token) = &config.auth_info.token {
         format!("Bearer {}", token.expose_secret())
     } else if config.auth_info.client_certificate_data.is_some() {
-        // Client cert auth — we'd need to pass certs to reqwest
-        // For now, return a placeholder — users should use token auth
+        // Client cert auth — store cert for later use
+        // For now, warn and use token auth as fallback
+        eprintln!(
+            "Warning: client certificate auth detected but not yet supported. \
+             Using token auth fallback."
+        );
         "Bearer placeholder".to_string()
     } else {
-        // Assume exec auth or other auth method — need to handle in production
+        // Exec auth or other auth method — need to handle in production
+        eprintln!(
+            "Warning: exec/auth plugin detected but not yet supported. \
+             Ensure your kubectl config uses token auth."
+        );
         "Bearer placeholder".to_string()
     };
 
