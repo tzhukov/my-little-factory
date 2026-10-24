@@ -1,0 +1,122 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: factories.factory.earendil.works
+  labels:
+    app.kubernetes.io/name: factory
+    app.kubernetes.io/component: crd
+spec:
+  group: factory.earendil.works
+  names:
+    kind: Factory
+    listKind: FactoryList
+    plural: factories
+    singular: factory
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                model:
+                  type: object
+                  required: [model]
+                  properties:
+                    apiKeySecretRef:
+                      type: object
+                      required: [name, key]
+                      properties:
+                        name:
+                          type: string
+                        key:
+                          type: string
+                    endpointSecretRef:
+                      type: object
+                      required: [name, key]
+                      properties:
+                        name:
+                          type: string
+                        key:
+                          type: string
+                    model:
+                      type: string
+                repo:
+                  type: object
+                  required: [url]
+                  properties:
+                    url:
+                      type: string
+                    branch:
+                      type: string
+                    ref:
+                      type: string
+                task:
+                  type: string
+                stages:
+                  type: array
+                  items:
+                    type: string
+                    enum: [plan, code, test, review]
+                resources:
+                  type: object
+                  properties:
+                    cpu:
+                      type: string
+                    memory:
+                      type: string
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum: [Pending, Running, Complete, Failed]
+                stages:
+                  type: array
+                  items:
+                    type: object
+                    required: [name, phase]
+                    properties:
+                      name:
+                        type: string
+                        enum: [plan, code, test, review]
+                      phase:
+                        type: string
+                        enum: [Pending, Running, Complete, Failed]
+                      startedAt:
+                        type: string
+                        format: date-time
+                      completedAt:
+                        type: string
+                        format: date-time
+                      result:
+                        type: object
+                        properties:
+                          text:
+                            type: string
+                          diff:
+                            type: string
+                          testOutput:
+                            type: string
+                          artifacts:
+                            type: object
+                            additionalProperties:
+                              type: string
+                      error:
+                        type: string
+                result:
+                  type: string
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
